@@ -43,8 +43,9 @@ CERT_CRT="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 if [ -f /etc/nginx/sites-enabled/$DOMAIN.conf ] ; then
 
     TURN_CONFIG="/etc/turnserver.conf"
+    TURN_HOOK=/etc/letsencrypt/renewal-hooks/deploy/0000-coturn-certbot-deploy.sh
     if [ -f $TURN_CONFIG ] && grep -q "jitsi-meet coturn config" "$TURN_CONFIG" ; then
-        TURN_HOOK=/etc/letsencrypt/renewal-hooks/deploy/0000-coturn-certbot-deploy.sh
+        mkdir -p $(dirname $TURN_HOOK)
 
         cp /usr/share/jitsi-meet-turnserver/coturn-certbot-deploy.sh $TURN_HOOK
         chmod u+x $TURN_HOOK
@@ -54,7 +55,8 @@ if [ -f /etc/nginx/sites-enabled/$DOMAIN.conf ] ; then
     ./certbot-auto certonly --noninteractive \
     --webroot --webroot-path /usr/share/jitsi-meet \
     -d $DOMAIN \
-    --agree-tos --email $EMAIL
+    --agree-tos --email $EMAIL \
+    --deploy-hook $TURN_HOOK
 
     echo "Configuring nginx"
 
@@ -70,15 +72,6 @@ if [ -f /etc/nginx/sites-enabled/$DOMAIN.conf ] ; then
 
     echo "service nginx reload" >> $CRON_FILE
     service nginx reload
-
-    if [ -f $TURN_CONFIG ] && grep -q "jitsi-meet coturn config" "$TURN_CONFIG" ; then
-        echo "Configuring turnserver"
-        sed -i "/^cert/c\cert=\/etc\/coturn\/certs\/$DOMAIN.fullchain.pem" $TURN_CONFIG
-        sed -i "/^pkey/c\pkey=\/etc\/coturn\/certs\/$DOMAIN.privkey.pem" $TURN_CONFIG
-
-        echo "service coturn restart" >> $CRON_FILE
-        service coturn restart
-    fi
 elif [ -f /etc/apache2/sites-enabled/$DOMAIN.conf ] ; then
 
     ./certbot-auto certonly --noninteractive \
